@@ -8,15 +8,54 @@ import uuid
 import urllib.parse
 import requests
 import re
-from fastapi import FastAPI, HTTPException
+import socket
+from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from pytubefix import YouTube, Playlist, Search
+
+try:
+    from zeroconf import ServiceInfo, Zeroconf
+    HAS_ZEROCONF = True
+except ImportError:
+    HAS_ZEROCONF = False
 
 app = FastAPI(title="MusiApp Server")
 
 DOWNLOADS_DIR = os.path.join(os.path.dirname(__file__), "downloads")
 os.makedirs(DOWNLOADS_DIR, exist_ok=True)
+
+# --- mDNS Discovery (Zero-Config) ---
+def get_local_ip():
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(('8.8.8.8', 80))
+        ip = s.getsockname()[0]
+    except Exception:
+        ip = "127.0.0.1"
+    finally:
+        s.close()
+    return ip
+
+zc = None
+if HAS_ZEROCONF:
+    try:
+        local_ip = get_local_ip()
+        info = ServiceInfo(
+            "_musiapp._tcp.local.",
+            "MusiApp Server._musiapp._tcp.local.",
+            addresses=[socket.inet_aton(local_ip)],
+            port=8080,
+            properties={"version": "1.0"},
+            server="musiapp.local.",
+        )
+        zc = Zeroconf()
+        zc.register_service(info)
+        print(f"INFO [Discovery]: Broadcasting MusiApp Server at {local_ip}:8080 📡")
+    except Exception as e:
+        print(f"WARNING [Discovery]: Failed to start mDNS: {str(e)}")
+else:
+    print("WARNING [Discovery]: 'zeroconf' not installed. Auto-discovery disabled. ⚠️")
 
 
 class DownloadRequest(BaseModel):
@@ -104,8 +143,15 @@ def spotify_info(req: DownloadRequest):
         raise HTTPException(status_code=400, detail=str(e))
 
 
+def remove_file_safely(path: str):
+    try:
+        if os.path.exists(path):
+            os.remove(path)
+    except Exception:
+        pass
+
 @app.post("/download")
-def download_song(req: DownloadRequest):
+def download_song(req: DownloadRequest, background_tasks: BackgroundTasks):
     """
     Downloads audio blisteringly fast using native python requests via pytubefix.
     Completely avoids yt-dlp overhead, JS engine chaos, and ffmpeg entirely.
@@ -134,6 +180,8 @@ def download_song(req: DownloadRequest):
 
     if not os.path.exists(mp3_path):
         raise HTTPException(status_code=500, detail="Audio file not written to disk.")
+
+    background_tasks.add_task(remove_file_safely, mp3_path)
 
     return FileResponse(
         path=mp3_path,

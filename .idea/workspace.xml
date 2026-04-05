@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="4a63b32e-4fa0-40cb-9b91-249ead01f794" name="Changes" comment="">
+    <list default="true" id="4a63b32e-4fa0-40cb-9b91-249ead01f794" name="Changes" comment="working server for now, can take spotify songs (not playlists) and full support for youtube">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/server.py" beforeDir="false" afterPath="$PROJECT_DIR$/server.py" afterDir="false" />
     </list>
@@ -9,6 +9,9 @@
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
     <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="ExportToHTMLSettings">
+    <option name="OUTPUT_DIRECTORY" value="$PROJECT_DIR$/../MusiAppServer\exportToHTML" />
   </component>
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
@@ -76,7 +79,15 @@
       <option name="project" value="LOCAL" />
       <updated>1775366457308</updated>
     </task>
-    <option name="localTasksCounter" value="3" />
+    <task id="LOCAL-00003" summary="working server for now, can take spotify songs (not playlists) and full support for youtube">
+      <option name="closed" value="true" />
+      <created>1775388573522</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1775388573522</updated>
+    </task>
+    <option name="localTasksCounter" value="4" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -93,6 +104,7 @@
   <component name="VcsManagerConfiguration">
     <MESSAGE value="opened the py server repo" />
     <MESSAGE value="server seems to be done" />
-    <option name="LAST_COMMIT_MESSAGE" value="server seems to be done" />
+    <MESSAGE value="working server for now, can take spotify songs (not playlists) and full support for youtube" />
+    <option name="LAST_COMMIT_MESSAGE" value="working server for now, can take spotify songs (not playlists) and full support for youtube" />
   </component>
 </project>
