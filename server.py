@@ -1,17 +1,17 @@
 """
-MusiApp Download Server
+MusiApp Pytube Server
 Run with: uvicorn server:app --host 0.0.0.0 --port 8080
-Requires: pip install fastapi uvicorn yt-dlp
-Requires: ffmpeg installed and on PATH (https://ffmpeg.org/download.html)
 """
 
 import os
 import uuid
-import json
 import urllib.parse
+import requests
+import re
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
+from pytubefix import YouTube, Playlist, Search
 
 app = FastAPI(title="MusiApp Server")
 
@@ -22,66 +22,127 @@ os.makedirs(DOWNLOADS_DIR, exist_ok=True)
 class DownloadRequest(BaseModel):
     url: str
 
-
 @app.get("/ping")
 def ping():
-    """Health check — the app calls this to verify the server is reachable."""
     return {"status": "ok"}
+
+
+@app.post("/playlist")
+def get_playlist_info(req: DownloadRequest):
+    """
+    Returns the title and list of video URLs for a given YouTube playlist.
+    """
+    try:
+        url = req.url
+        # Normalize: if it's a watch link containing a list, convert to playlist URL
+        if "list=" in url:
+            list_id = url.split("list=")[1].split("&")[0]
+            url = f"https://www.youtube.com/playlist?list={list_id}"
+            
+        pl = Playlist(url)
+        return {
+            "title": pl.title,
+            "urls": list(pl.video_urls)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Playlist fetch failed: {str(e)}")
+
+
+def resolve_spotify(url: str):
+    """
+    Scrapes metadata from an 'Open' Spotify page and finds matching YouTube URL(s).
+    """
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"}
+    response = requests.get(url, headers=headers)
+    if response.status_code != 200:
+        raise Exception(f"Spotify page unreachable ({response.status_code})")
+    
+    html = response.text
+    
+    # Try to extract track title and artist from meta tags
+    # <meta property="og:title" content="Song Title" />
+    # <meta property="og:description" content="Artist Name · Song · 2024" />
+    title_match = re.search(r'<meta property="og:title" content="([^"]+)"', html)
+    desc_match = re.search(r'<meta property="og:description" content="([^"]+)"', html)
+    
+    if not title_match or not desc_match:
+        raise Exception("Could not find metadata on Spotify page")
+    
+    track_title = title_match.group(1)
+    # The description often contains "Artist Name · Song · Year"
+    artist = desc_match.group(1).split(" · ")[0]
+    
+    query = f"{track_title} {artist} audio"
+    s = Search(query)
+    if not s.results:
+        raise Exception("No matching YouTube video found")
+    
+    return {
+        "title": track_title,
+        "artist": artist,
+        "youtube_url": s.results[0].watch_url
+    }
+
+
+@app.post("/spotify")
+def spotify_info(req: DownloadRequest):
+    """
+    Resolves a Spotify song link to a YouTube URL.
+    """
+    try:
+        if "/track/" in req.url:
+            resolved = resolve_spotify(req.url)
+            return {
+                "type": "track",
+                "title": resolved["title"],
+                "urls": [resolved["youtube_url"]]
+            }
+        else:
+            raise HTTPException(status_code=400, detail="MusiApp currently only supports single Spotify songs. Playlists coming soon!")
+            
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @app.post("/download")
 def download_song(req: DownloadRequest):
     """
-    Accepts a YouTube URL, downloads audio as MP3 via yt-dlp,
-    and returns the file with song metadata in response headers.
+    Downloads audio blisteringly fast using native python requests via pytubefix.
+    Completely avoids yt-dlp overhead, JS engine chaos, and ffmpeg entirely.
     """
     song_id = str(uuid.uuid4())
-    output_template = os.path.join(DOWNLOADS_DIR, f"{song_id}.%(ext)s")
-
-    ydl_opts = {
-        "format": "bestaudio/best",
-        "outtmpl": output_template,
-        "postprocessors": [{
-            "key": "FFmpegExtractAudio",
-            "preferredcodec": "mp3",
-            "preferredquality": "192",
-        }],
-        "writeinfojson": True,
-        "quiet": True,
-        "ffmpeg_location": r"C:\Users\adren\Downloads\ffmpeg-master-latest-win64-gpl-shared\ffmpeg-master-latest-win64-gpl-shared\bin",
-    }
+    mp3_path = os.path.join(DOWNLOADS_DIR, f"{song_id}.mp3")
 
     try:
-        import yt_dlp
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            ydl.download([req.url])
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Download failed: {str(e)}")
+        # Fetch the video using the lightning fast Android client
+        yt = YouTube(req.url)
 
-    mp3_path = os.path.join(DOWNLOADS_DIR, f"{song_id}.mp3")
-    info_path = os.path.join(DOWNLOADS_DIR, f"{song_id}.info.json")
+        # Grab the highest quality native audio stream
+        audio_stream = yt.streams.filter(only_audio=True).first()
+        if not audio_stream:
+            raise Exception("No audio stream found")
+
+        # Download directly to our MP3 file path
+        audio_stream.download(output_path=DOWNLOADS_DIR, filename=f"{song_id}.mp3")
+
+        title = yt.title or "Unknown Title"
+        artist = yt.author or "Unknown Artist"
+        duration = yt.length or 0
+
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Pytube failed: {str(e)}")
 
     if not os.path.exists(mp3_path):
-        raise HTTPException(status_code=500, detail="MP3 not found after download.")
+        raise HTTPException(status_code=500, detail="Audio file not written to disk.")
 
-    # Read title/artist/duration from the sidecar JSON yt-dlp writes
-    title, artist, duration = "Unknown Title", "Unknown Artist", 0
-    if os.path.exists(info_path):
-        with open(info_path, "r", encoding="utf-8") as f:
-            info = json.load(f)
-            title    = info.get("title", title)
-            artist   = info.get("uploader", artist)
-            duration = int(info.get("duration", 0))
-
-        # Return the MP3 with metadata packed into custom response headers
-        return FileResponse(
-            path=mp3_path,
-            media_type="audio/mpeg",
-            filename=f"{song_id}.mp3",  # Safer to use song_id here avoid header injection
-            headers={
-                "X-Song-Title": urllib.parse.quote(title),
-                "X-Song-Artist": urllib.parse.quote(artist),
-                "X-Song-Duration": str(duration),
-                "Access-Control-Expose-Headers": "X-Song-Title,X-Song-Artist,X-Song-Duration",
-            }
-        )
+    return FileResponse(
+        path=mp3_path,
+        media_type="audio/mpeg",
+        filename=f"{song_id}.mp3",
+        headers={
+            "X-Song-Title": urllib.parse.quote(title),
+            "X-Song-Artist": urllib.parse.quote(artist),
+            "X-Song-Duration": str(duration),
+            "Access-Control-Expose-Headers": "X-Song-Title,X-Song-Artist,X-Song-Duration"
+        }
+    )
