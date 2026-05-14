@@ -194,3 +194,7 @@ def download_song(req: DownloadRequest, background_tasks: BackgroundTasks):
             "Access-Control-Expose-Headers": "X-Song-Title,X-Song-Artist,X-Song-Duration"
         }
     )
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8080)
