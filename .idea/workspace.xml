@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="4a63b32e-4fa0-40cb-9b91-249ead01f794" name="Changes" comment="working server for now, can take spotify songs (not playlists) and full support for youtube">
+    <list default="true" id="4a63b32e-4fa0-40cb-9b91-249ead01f794" name="Changes" comment="added app to so it would launch way easier">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -86,7 +86,15 @@
       <option name="project" value="LOCAL" />
       <updated>1775388573522</updated>
     </task>
-    <option name="localTasksCounter" value="4" />
+    <task id="LOCAL-00004" summary="added app to so it would launch way easier">
+      <option name="closed" value="true" />
+      <created>1778752271633</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1778752271633</updated>
+    </task>
+    <option name="localTasksCounter" value="5" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -104,6 +112,7 @@
     <MESSAGE value="opened the py server repo" />
     <MESSAGE value="server seems to be done" />
     <MESSAGE value="working server for now, can take spotify songs (not playlists) and full support for youtube" />
-    <option name="LAST_COMMIT_MESSAGE" value="working server for now, can take spotify songs (not playlists) and full support for youtube" />
+    <MESSAGE value="added app to so it would launch way easier" />
+    <option name="LAST_COMMIT_MESSAGE" value="added app to so it would launch way easier" />
   </component>
 </project>

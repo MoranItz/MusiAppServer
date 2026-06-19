@@ -78,11 +78,29 @@ def get_playlist_info(req: DownloadRequest):
             list_id = url.split("list=")[1].split("&")[0]
             url = f"https://www.youtube.com/playlist?list={list_id}"
             
-        pl = Playlist(url)
-        return {
-            "title": pl.title,
-            "urls": list(pl.video_urls)
+        import yt_dlp
+        ydl_opts = {
+            'extract_flat': True,
+            'quiet': True,
+            'no_warnings': True,
         }
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=False)
+            
+            title = info.get('title') or "Unknown Playlist"
+            urls = []
+            for entry in info.get('entries', []):
+                if entry.get('url'):
+                    # yt-dlp might return full URL or just the video ID depending on the site/extractor
+                    video_url = entry['url']
+                    if not video_url.startswith('http'):
+                        video_url = f"https://www.youtube.com/watch?v={entry.get('id') or video_url}"
+                    urls.append(video_url)
+            
+            return {
+                "title": title,
+                "urls": urls
+            }
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Playlist fetch failed: {str(e)}")
 
